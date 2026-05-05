@@ -1,41 +1,21 @@
-workflows:
-  android_debug:
-    name: BOUH Android Debug
-    instance_type: mac_mini_m2
-    max_build_duration: 120
-    environment:
-      flutter: stable
-    scripts:
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Build APK (debug)
-        script: flutter build apk --debug
-      - name: Collect Android artifact
-        script: |
-          mkdir -p artifacts/android
-          cp build/app/outputs/flutter-apk/app-debug.apk artifacts/android/ || true
-    artifacts:
-      - artifacts/android/*.apk
+name: bouh_supreme_udc_enterprise
+description: Offline enterprise geological discovery engine for Android and iOS.
+publish_to: 'none'
+version: 4.0.0+1
 
-  ios_debug:
-    name: BOUH iOS Debug Unsigned
-    instance_type: mac_mini_m2
-    max_build_duration: 120
-    environment:
-      flutter: stable
-      xcode: latest
-      cocoapods: default
-    scripts:
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Install pods
-        script: find . -name "Podfile" -execdir pod install \;
-      - name: Build iOS debug without codesign
-        script: flutter build ios --debug --no-codesign
-      - name: Collect iOS artifact
-        script: |
-          mkdir -p artifacts/ios
-          cp -R build/ios/iphoneos/*.app artifacts/ios/ || true
-    artifacts:
-      - artifacts/ios/*.app
-      - /tmp/xcodebuild_logs/*.log
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.5.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
