@@ -1,57 +1,66 @@
 workflows:
-  android_debug:
-    name: BOUH Android Debug
+  bouh_universal_debug:
+    name: BOUH Universal Build (APK + iOS)
     instance_type: mac_mini_m2
     max_build_duration: 120
-    environment:
-      flutter: stable
-    scripts:
-      - name: Ensure Android platform exists
-        script: |
-          if [ ! -d android ]; then
-            flutter create --platforms=android .
-          fi
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Build APK (debug)
-        script: flutter build apk --debug
-      - name: Collect APK
-        script: |
-          mkdir -p artifacts/android
-          cp build/app/outputs/flutter-apk/app-debug.apk artifacts/android/ || true
-    artifacts:
-      - artifacts/android/*.apk
-      - build/app/outputs/flutter-apk/*.apk
 
-  ios_debug_unsigned:
-    name: BOUH iOS Debug Unsigned
-    instance_type: mac_mini_m2
-    max_build_duration: 120
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+
     scripts:
-      - name: Ensure iOS platform exists
+
+      - name: Clean project
         script: |
-          if [ ! -d ios ]; then
-            flutter create --platforms=ios .
-          fi
-      - name: Get Flutter packages
-        script: flutter pub get
-      - name: Install Pods
+          flutter clean
+
+      - name: Get dependencies
         script: |
-          if [ -f ios/Podfile ]; then
-            cd ios && pod install
-          fi
-      - name: Build iOS debug without codesign
-        script: flutter build ios --debug --no-codesign
-      - name: Collect iOS app bundle
+          flutter pub get
+
+      - name: Ensure platforms exist
         script: |
+          flutter create .
+
+      - name: Fix iOS Pods
+        script: |
+          cd ios
+          pod install
+          cd ..
+
+      # 🔴 Build Android APK
+      - name: Build APK
+        script: |
+          flutter build apk --debug
+
+      # 🔴 Build iOS (بدون توقيع)
+      - name: Build iOS
+        script: |
+          flutter build ios --debug --no-codesign
+
+      # 🔴 جمع الملفات (Smart Copy)
+      - name: Collect Artifacts
+        script: |
+          mkdir -p artifacts/android
           mkdir -p artifacts/ios
-          cp -R build/ios/iphoneos/*.app artifacts/ios/ || true
-          cp -R build/ios/Build/Products/Debug-iphoneos/*.app artifacts/ios/ || true
+
+          echo "Copying APK..."
+          cp build/app/outputs/flutter-apk/*.apk artifacts/android/ || true
+
+          echo "Searching for iOS app..."
+          APP_PATH=$(find build/ios -type d -name "*.app" | head -n 1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No .app found"
+            ls -R build/ios
+          else
+            echo "✅ Found app at: $APP_PATH"
+            cp -R "$APP_PATH" artifacts/ios/
+          fi
+
     artifacts:
+      - artifacts/android/*.apk
       - artifacts/ios/*.app
-      - build/ios/iphoneos/*.app
-      - build/ios/Build/Products/Debug-iphoneos/*.app
+      - build/app/outputs/flutter-apk/*.apk
+      - build/ios/**/*.app
