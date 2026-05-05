@@ -1,24 +1,14 @@
-name: bouh_supreme_udc_enterprise
-description: Offline enterprise geological discovery engine for iOS and Android.
-publish_to: 'none'
-version: 4.0.0+3
-environment:
-  sdk: '>=3.3.0 <4.0.0'
-  flutter: '>=3.19.0'
-dependencies:
-  flutter:
-    sdk: flutter
-  cupertino_icons: ^1.0.8
-  shared_preferences: ^2.2.3
-  vector_math: 2.2.0
-
-flutter:
-  uses-material-design: true
-  assets:
-    - assets/data/
-    - assets/images/
-    - assets/maps/
-    - assets/kml/
-    - assets/data/BOUH_MASTER_PACKAGE.geojson
-    - assets/data/targets_master.csv
-    - assets/data/aoi_envelopes.csv
+workflows:
+  android-workflow:
+    name: Android Build
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Build Android APK
+        script: |
+          flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
