@@ -11,19 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Unzip uploaded package if exists
-        run: |
-          ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
-          if [ -n "$ZIP_FILE" ]; then
-            echo "Unzipping $ZIP_FILE"
-            unzip -o "$ZIP_FILE"
-          else
-            echo "No zip file found"
-          fi
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -35,283 +22,194 @@ jobs:
         with:
           channel: stable
 
-      - name: Prepare Flutter project
+      - name: Create Flutter project
         run: |
-          echo "Locating pubspec.yaml..."
-          PUBSPEC=$(find . -name "pubspec.yaml" | head -n 1)
+          flutter create bouh_app
 
-          if [ -z "$PUBSPEC" ]; then
-            echo "No pubspec.yaml found. Creating Flutter project..."
-            flutter create bouh_app
-            PROJECT_DIR="bouh_app"
-          else
-            PROJECT_DIR=$(dirname "$PUBSPEC")
-            echo "Found Flutter project at $PROJECT_DIR"
-          fi
+      - name: Write BOUH app
+        run: |
+          cat > bouh_app/lib/main.dart <<'EOF'
+          import 'package:flutter/material.dart';
 
-          cd "$PROJECT_DIR"
+          void main() {
+            runApp(const BouhApp());
+          }
 
-          if [ ! -d "lib" ]; then
-            mkdir -p lib
-          fi
+          class BouhApp extends StatelessWidget {
+            const BouhApp({super.key});
 
-          if [ ! -f "lib/main.dart" ]; then
-            cat > lib/main.dart <<'EOF'
-import 'package:flutter/material.dart';
+            @override
+            Widget build(BuildContext context) {
+              return MaterialApp(
+                title: 'BOUH Gold',
+                debugShowCheckedModeBanner: false,
+                theme: ThemeData.dark(useMaterial3: true),
+                home: const HomePage(),
+              );
+            }
+          }
 
-void main() {
-  runApp(const BouhApp());
-}
+          class Target {
+            final String name;
+            final double lat;
+            final double lon;
+            final double structure;
+            final double clay;
+            final double iron;
+            final double silica;
+            final String type;
 
-class BouhApp extends StatelessWidget {
-  const BouhApp({super.key});
+            const Target(
+              this.name,
+              this.lat,
+              this.lon,
+              this.structure,
+              this.clay,
+              this.iron,
+              this.silica,
+              this.type,
+            );
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'بوح التضاريس',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark(useMaterial3: true),
-      home: const HomePage(),
-    );
-  }
-}
+            double get score {
+              return structure * 0.36 +
+                  ((clay + iron + silica) / 3) * 0.28 +
+                  0.12 * 0.72 +
+                  0.08 * 0.85 +
+                  0.16 * 0.65;
+            }
 
-class Target {
-  final String name;
-  final double lat;
-  final double lon;
-  final double structure;
-  final double clay;
-  final double iron;
-  final double silica;
-  final String type;
+            String get decision {
+              if (structure < 0.55) return 'REJECT - No structure';
+              if (clay < 0.50) return 'HOLD - Weak SWIR/Clay';
+              if (score >= 0.80) return 'TARGET-B ELITE';
+              if (score >= 0.70) return 'HIGH PRIORITY';
+              return 'FIELD CHECK';
+            }
+          }
 
-  const Target({
-    required this.name,
-    required this.lat,
-    required this.lon,
-    required this.structure,
-    required this.clay,
-    required this.iron,
-    required this.silica,
-    required this.type,
-  });
+          const targets = [
+            Target('Gebeit Core Strike', 20.88, 36.06, 0.95, 0.89, 0.91, 0.84, 'Orogenic Lode'),
+            Target('Sinkat Shear Cluster', 20.74, 36.18, 0.92, 0.81, 0.79, 0.75, 'Shear Intersection'),
+            Target('Hashai Gossan', 19.18, 36.07, 0.84, 0.73, 0.95, 0.69, 'Gossan Gold'),
+            Target('Ariab Extension', 18.76, 35.36, 0.88, 0.90, 0.76, 0.71, 'Sulfide Gold'),
+            Target('Derbeikwan Placer', 18.72, 34.95, 0.66, 0.52, 0.68, 0.61, 'Placer / Wadi Trap'),
+          ];
 
-  double get score {
-    return (structure * 0.36) +
-        (((clay + iron + silica) / 3) * 0.28) +
-        (0.12 * 0.72) +
-        (0.08 * 0.85) +
-        (0.16 * 0.65);
-  }
+          class HomePage extends StatelessWidget {
+            const HomePage({super.key});
 
-  String get decision {
-    if (structure < 0.55) return 'REJECT — لا توجد بنية كافية';
-    if (clay < 0.50) return 'HOLD — لا توجد SWIR/Clay كافية';
-    if (score >= 0.80) return 'TARGET-B ELITE';
-    if (score >= 0.70) return 'HIGH PRIORITY';
-    return 'FIELD CHECK';
-  }
-}
+            Color statusColor(String decision) {
+              if (decision.contains('TARGET-B')) return Colors.redAccent;
+              if (decision.contains('HIGH')) return Colors.orangeAccent;
+              if (decision.contains('HOLD')) return Colors.blueAccent;
+              if (decision.contains('REJECT')) return Colors.grey;
+              return Colors.greenAccent;
+            }
 
-const targets = [
-  Target(
-    name: 'Gebeit Core Strike',
-    lat: 20.88,
-    lon: 36.06,
-    structure: 0.95,
-    clay: 0.89,
-    iron: 0.91,
-    silica: 0.84,
-    type: 'Orogenic Lode',
-  ),
-  Target(
-    name: 'Sinkat Shear Cluster',
-    lat: 20.74,
-    lon: 36.18,
-    structure: 0.92,
-    clay: 0.81,
-    iron: 0.79,
-    silica: 0.75,
-    type: 'Shear Intersection',
-  ),
-  Target(
-    name: 'Hashai Gossan',
-    lat: 19.18,
-    lon: 36.07,
-    structure: 0.84,
-    clay: 0.73,
-    iron: 0.95,
-    silica: 0.69,
-    type: 'Gossan Gold',
-  ),
-  Target(
-    name: 'Ariab Extension',
-    lat: 18.76,
-    lon: 35.36,
-    structure: 0.88,
-    clay: 0.90,
-    iron: 0.76,
-    silica: 0.71,
-    type: 'Sulfide Gold',
-  ),
-  Target(
-    name: 'Derbeikwan Placer',
-    lat: 18.72,
-    lon: 34.95,
-    structure: 0.66,
-    clay: 0.52,
-    iron: 0.68,
-    silica: 0.61,
-    type: 'Placer / Wadi Trap',
-  ),
-];
+            @override
+            Widget build(BuildContext context) {
+              final sorted = [...targets]..sort((a, b) => b.score.compareTo(a.score));
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
-
-  Color _statusColor(String decision) {
-    if (decision.contains('TARGET-B')) return Colors.redAccent;
-    if (decision.contains('HIGH')) return Colors.orangeAccent;
-    if (decision.contains('HOLD')) return Colors.blueAccent;
-    if (decision.contains('REJECT')) return Colors.grey;
-    return Colors.greenAccent;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sorted = [...targets]..sort((a, b) => b.score.compareTo(a.score));
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('بوح التضاريس'),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Text(
-            'BOUH SUPREME ENGINE',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Ahmed Abuaziza Al-Rasheedi',
-            style: TextStyle(fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(14),
-              child: Text(
-                'القانون التشغيلي: Structure → Pattern → Alteration → Confirmation → Decision\n\n'
-                'No Structure = Reject\n'
-                'No Clay/SWIR = HOLD\n'
-                'Spectral alone = Reject\n'
-                'Field + GeoChem = Final Truth',
-                style: TextStyle(fontSize: 15),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...sorted.map((t) {
-            final decision = t.decision;
-            return Card(
-              margin: const EdgeInsets.only(bottom: 14),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('بوح التضاريس'),
+                  centerTitle: true,
+                ),
+                body: ListView(
+                  padding: const EdgeInsets.all(16),
                   children: [
-                    Text(
-                      t.name,
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    const Text(
+                      'BOUH SUPREME ENGINE',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 6),
-                    Text('Type: ${t.type}'),
-                    Text('GPS: ${t.lat.toStringAsFixed(4)}, ${t.lon.toStringAsFixed(4)}'),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(value: t.score.clamp(0.0, 1.0)),
-                    const SizedBox(height: 8),
-                    Text('P-Score: ${t.score.toStringAsFixed(3)}'),
-                    Text('Structure: ${t.structure.toStringAsFixed(2)}'),
-                    Text('Clay/SWIR: ${t.clay.toStringAsFixed(2)}'),
-                    Text('Iron: ${t.iron.toStringAsFixed(2)}'),
-                    Text('Silica/Quartz: ${t.silica.toStringAsFixed(2)}'),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: _statusColor(decision).withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: _statusColor(decision)),
+                    const Text(
+                      'Ahmed Abuaziza Al-Rasheedi',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(14),
+                        child: Text(
+                          'Structure -> Pattern -> Alteration -> Confirmation -> Decision\n\n'
+                          'No Structure = Reject\n'
+                          'No Clay/SWIR = HOLD\n'
+                          'Spectral alone = Reject\n'
+                          'Field + GeoChem = Final Truth',
+                        ),
                       ),
-                      child: Text(
-                        decision,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    for (final t in sorted)
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                t.name,
+                                style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                              ),
+                              const SizedBox(height: 6),
+                              Text('Type: ${t.type}'),
+                              Text('GPS: ${t.lat.toStringAsFixed(4)}, ${t.lon.toStringAsFixed(4)}'),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(value: t.score.clamp(0.0, 1.0)),
+                              const SizedBox(height: 8),
+                              Text('P-Score: ${t.score.toStringAsFixed(3)}'),
+                              Text('Structure: ${t.structure.toStringAsFixed(2)}'),
+                              Text('Clay/SWIR: ${t.clay.toStringAsFixed(2)}'),
+                              Text('Iron: ${t.iron.toStringAsFixed(2)}'),
+                              Text('Silica/Quartz: ${t.silica.toStringAsFixed(2)}'),
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: statusColor(t.decision).withOpacity(0.18),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: statusColor(t.decision)),
+                                ),
+                                child: Text(
+                                  t.decision,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(14),
+                        child: Text(
+                          'Field Protocol:\n'
+                          '1. Verify shear / fault / intersection\n'
+                          '2. Verify quartz + iron + alteration\n'
+                          '3. Do not dig from color alone\n'
+                          '4. Sample vein + wall rock\n'
+                          '5. Final decision requires assay and QA/QC',
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            );
-          }),
-          const SizedBox(height: 20),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(14),
-              child: Text(
-                'بروتوكول الميدان:\n'
-                '1) تحقق من shear / fault / intersection\n'
-                '2) تحقق من quartz + iron + alteration\n'
-                '3) لا تحفر من اللون وحده\n'
-                '4) خذ عينات من vein + wall rock\n'
-                '5) القرار النهائي يحتاج assay و QA/QC',
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-EOF
-          fi
-
-          if [ ! -d "android" ]; then
-            echo "Android folder missing. Running flutter create ."
-            flutter create .
-          fi
-
-      - name: Flutter pub get
-        run: |
-          PUBSPEC=$(find . -name "pubspec.yaml" | head -n 1)
-          PROJECT_DIR=$(dirname "$PUBSPEC")
-          cd "$PROJECT_DIR"
-          flutter pub get
+              );
+            }
+          }
+          EOF
 
       - name: Build APK
         run: |
-          PUBSPEC=$(find . -name "pubspec.yaml" | head -n 1)
-          PROJECT_DIR=$(dirname "$PUBSPEC")
-          cd "$PROJECT_DIR"
+          cd bouh_app
+          flutter pub get
           flutter build apk --release
-
-      - name: Prepare APK
-        run: |
-          mkdir -p dist
-          APK_PATH=$(find . -path "*/build/app/outputs/flutter-apk/app-release.apk" | head -n 1)
-          echo "APK path: $APK_PATH"
-          cp "$APK_PATH" dist/bouh-altadaris.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: bouh-altadaris-apk
-          path: dist/bouh-altadaris.apk
+          path: bouh_app/build/app/outputs/flutter-apk/app-release.apk
