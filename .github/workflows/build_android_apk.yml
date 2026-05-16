@@ -1,0 +1,69 @@
+name: Build BOUH Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unzip uploaded package
+        run: |
+          echo "Looking for ZIP files..."
+          ls -la
+          ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Unzipping $ZIP_FILE"
+            unzip -o "$ZIP_FILE"
+          else
+            echo "No zip file found. Continuing..."
+          fi
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Locate Flutter project
+        run: |
+          echo "Searching for pubspec.yaml..."
+          find . -name "pubspec.yaml"
+
+      - name: Flutter pub get
+        run: |
+          PROJECT_DIR=$(dirname "$(find . -name "pubspec.yaml" | head -n 1)")
+          echo "Project dir: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          flutter pub get
+
+      - name: Build APK
+        run: |
+          PROJECT_DIR=$(dirname "$(find . -name "pubspec.yaml" | head -n 1)")
+          cd "$PROJECT_DIR"
+          flutter build apk --release
+
+      - name: Prepare APK
+        run: |
+          mkdir -p dist
+          APK_PATH=$(find . -path "*/build/app/outputs/flutter-apk/app-release.apk" | head -n 1)
+          echo "APK path: $APK_PATH"
+          cp "$APK_PATH" dist/bouh-altadaris.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bouh-altadaris-apk
+          path: dist/bouh-altadaris.apk
